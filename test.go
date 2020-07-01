@@ -27,7 +27,7 @@ import (
 func MakeInstance(svc ec2iface.EC2API, name, value *string) (*ec2.Reservation, error) {
 	key := "hk_region"
 	ud := `#!/bin/bash
-	export JENKINS_MASTER=18.162.47.230:80
+	export JENKINS_MASTER=172.31.7.173:80
 	nohup /root/command.sh &
 	`
 
@@ -37,7 +37,7 @@ func MakeInstance(svc ec2iface.EC2API, name, value *string) (*ec2.Reservation, e
 	// subnet := "subnet-c4686fbc"
 	// snippet-start:[ec2.go.create_instance_with_tag.call]
 	result, err := svc.RunInstances(&ec2.RunInstancesInput{
-		ImageId:          aws.String("ami-01f41038383dc862b"),
+		ImageId:          aws.String("ami-02986db8fa9f47e57"),
 		InstanceType:     aws.String("t3.micro"),
 		MinCount:         aws.Int64(1),
 		MaxCount:         aws.Int64(1),
