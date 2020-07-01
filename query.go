@@ -3,13 +3,20 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os/exec"
 	"strings"
 )
 
 func main() {
-	x := queryAgent("18.163.184.77:80", "i-0912b2c691a1f56e5")
-	fmt.Println(x)
+	deregisterAgent("18.163.184.77:80", "jenkins-cli.jar", "i-0743e48f00bf94046")
+}
+
+func deregisterAgent(url, jenkinsCli, agent string) {
+	cmd := exec.Command("java", "-jar", jenkinsCli, "-s", "http://"+url, "delete-node", agent)
+	err := cmd.Run()
+	log.Printf("Command finished with error: %v", err)
 }
 
 func queryAgent(url, agent string) bool {

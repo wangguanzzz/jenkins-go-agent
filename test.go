@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"time"
 )
 
 // snippet-end:[ec2.go.create_instance_with_tag.imports]
@@ -24,21 +25,51 @@ import (
 // Output:
 //     If success, nil
 //     Otherwise, an error from the call to RunInstances or CreateTags
-func MakeInstance(svc ec2iface.EC2API, name, value *string) (*ec2.Reservation, error) {
-	key := "hk_region"
+
+func getSvc() ec2iface.EC2API {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	svc := ec2.New(sess)
+	return svc
+}
+
+func TerminateInstance(instanceId string) {
+	svc := getSvc()
+	input := &ec2.TerminateInstancesInput{
+		InstanceIds: []*string{
+			aws.String(instanceId),
+		},
+	}
+
+	result, err := svc.TerminateInstances(input)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	fmt.Println(result)
+}
+func MakeInstance(jenkins, subnetId, sg, key, ami, vmtype string) (string, error) {
+	name := flag.String("n", "Name", "The name of the tag to attach to the instance")
+	value := flag.String("v", "JenkinsAgent", "The value of the tag to attach to the instance")
+	flag.Parse()
+
+	svc := getSvc()
+
 	ud := `#!/bin/bash
-	export JENKINS_MASTER=172.31.7.173:80
-	nohup /root/command.sh &
-	`
+	export JENKINS_MASTER=` + jenkins + `nohup /root/command.sh &`
 
 	userData := base64.StdEncoding.EncodeToString([]byte(ud))
-	sg := "chris"
+
 	sgs := []*string{&sg}
 	// subnet := "subnet-c4686fbc"
 	// snippet-start:[ec2.go.create_instance_with_tag.call]
 	result, err := svc.RunInstances(&ec2.RunInstancesInput{
-		ImageId:          aws.String("ami-02986db8fa9f47e57"),
-		InstanceType:     aws.String("t3.micro"),
+		ImageId:          aws.String(ami),
+		InstanceType:     aws.String(vmtype),
+		SubnetId:         &subnetId,
 		MinCount:         aws.Int64(1),
 		MaxCount:         aws.Int64(1),
 		KeyName:          &key,
@@ -48,7 +79,7 @@ func MakeInstance(svc ec2iface.EC2API, name, value *string) (*ec2.Reservation, e
 	})
 	// snippet-end:[ec2.go.create_instance_with_tag.call]
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// snippet-start:[ec2.go.create_instance_with_tag.tag]
@@ -63,42 +94,19 @@ func MakeInstance(svc ec2iface.EC2API, name, value *string) (*ec2.Reservation, e
 	})
 	// snippet-end:[ec2.go.create_instance_with_tag.tag]
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return result, nil
+	return *result.Instances[0].InstanceId, nil
 }
 
 func main() {
-
-	//------------------------------------
-	// snippet-start:[ec2.go.create_instance_with_tag.args]
-	name := flag.String("n", "Name", "The name of the tag to attach to the instance")
-	value := flag.String("v", "test", "The value of the tag to attach to the instance")
-	flag.Parse()
-
-	if *name == "" || *value == "" {
-		fmt.Println("You must supply a name and value for the tag (-n NAME -v VALUE)")
-		return
-	}
-	// snippet-end:[ec2.go.create_instance_with_tag.args]
-
-	// snippet-start:[ec2.go.create_instance_with_tag.session]
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	svc := ec2.New(sess)
-	// snippet-end:[ec2.go.create_instance_with_tag.session]
-
-	result, err := MakeInstance(svc, name, value)
+	result, err := MakeInstance("18.163.184.77:80", "subnet-c4686fbc", "chris", "hk_region", "ami-02986db8fa9f47e57", "t3.micro")
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Got an error creating an instance with tag " + *name)
-		return
+		fmt.Println(err.Error())
 	}
-
-	fmt.Println("Created tagged instance with ID " + *result.Instances[0].InstanceId)
+	time.Sleep(20 * time.Second)
+	TerminateInstance(result)
 }
 
 // snippet-end:[ec2.go.create_instance_with_tag]
