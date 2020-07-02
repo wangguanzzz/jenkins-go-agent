@@ -43,7 +43,7 @@ func queryAgent(url, agent string) bool {
 	return idle
 }
 
-func queryQueue(url string) bool {
+func queryQueue(url string, agentMap map[string]int) bool {
 	requrl := fmt.Sprintf("http://%v/queue/api/json", url)
 	req, err := http.NewRequest("GET", requrl, nil)
 	if err != nil {
@@ -64,5 +64,8 @@ func queryQueue(url string) bool {
 	}
 	// fmt.Println(string(body))
 	found := strings.Contains(string(body), `‘work-node’`)
+	for instance, _ := range agentMap {
+		found = found || strings.Contains(string(body), instance)
+	}
 	return found
 }
