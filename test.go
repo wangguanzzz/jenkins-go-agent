@@ -6,7 +6,7 @@ package main
 // snippet-start:[ec2.go.create_instance_with_tag.imports]
 import (
 	"encoding/base64"
-	// "flag"
+	"flag"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -35,8 +35,8 @@ func getSvc() ec2iface.EC2API {
 	return svc
 }
 
-func TerminateInstance(svc ec2iface.EC2API, instanceId string) {
-
+func TerminateInstance(instanceId string) {
+	svc := getSvc()
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: []*string{
 			aws.String(instanceId),
@@ -51,11 +51,9 @@ func TerminateInstance(svc ec2iface.EC2API, instanceId string) {
 
 	fmt.Println(result)
 }
-func MakeInstance(svc ec2iface.EC2API, jenkins, subnetId, sg1, sg2, key, ami, vmtype string) (string, error) {
-	// name := flag.String("n", "Name", "The name of the tag to attach to the instance")
-	// value := flag.String("v", "JenkinsAgent", "The value of the tag to attach to the instance")
-	// flag.Parse()
+func MakeInstance(jenkins, subnetId, sg1, sg2, key, ami, vmtype string) (string, error) {
 
+	svc := getSvc()
 	ud := `#!/bin/bash
 	export JENKINS_MASTER=` + jenkins + `
 	nohup /root/command.sh &`
@@ -65,7 +63,6 @@ func MakeInstance(svc ec2iface.EC2API, jenkins, subnetId, sg1, sg2, key, ami, vm
 	sgs := []*string{&sg1, &sg2}
 	// subnet := "subnet-c4686fbc"
 	// snippet-start:[ec2.go.create_instance_with_tag.call]
-	fmt.Println("here ..................................................................")
 	result, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:          aws.String(ami),
 		InstanceType:     aws.String(vmtype),
@@ -80,7 +77,7 @@ func MakeInstance(svc ec2iface.EC2API, jenkins, subnetId, sg1, sg2, key, ami, vm
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("here2 ..................................................................")
+
 	// snippet-start:[ec2.go.create_instance_with_tag.tag]
 	name := "Name"
 	tag := "JenkinsAgent"
@@ -102,14 +99,36 @@ func MakeInstance(svc ec2iface.EC2API, jenkins, subnetId, sg1, sg2, key, ami, vm
 }
 
 func main() {
-	jenkins_master := "18.163.184.77:80"
-	cool_down := 60
-	scan_frequency := 10
-	vm_cap := 2
-	idle_cap := 60
+	// application setting
+
+	fjenkins := flag.String("jenkins", "127.0.0.1:8080", "Jenkins Master URL like 127.0.0.1:8080")
+	fcooldown := flag.Int("cooldown", 60, "cool down period")
+	fscan := flag.Int("frequency", 10, "scan frequency")
+	fcap := flag.Int("vmcap", 2, "agent number cap")
+	fidle := flag.Int("idle", 60, "idle period")
+
+	// aws setting
+	//"subnet-c4686fbc"
+	subnet := flag.String("subnet", "", "AWS subnet ID")
+	//"sg-0891ebcae20b9ea2e", "sg-95d428fc"
+	sg1 := flag.String("sg1", "", "AWS security group 1")
+	sg2 := flag.String("sg2", "", "AWS security group 2")
+	//"hk_region"
+	keyName := flag.String("key", "", "AWS key name")
+	// "ami-02986db8fa9f47e57"
+	ami := flag.String("ami", "", "AWS key name")
+	// "t3.micro"
+	vmtype := flag.String("vmtype", "t3.micro", "AWS vm type")
+
+	flag.Parse()
+
+	jenkins_master := *fjenkins //"18.163.184.77:80"
+	cool_down := *fcooldown
+	scan_frequency := *fscan
+	vm_cap := *fcap
+	idle_cap := *fidle
 	// [instance_id] = idle second
 	agentMap := make(map[string]int, vm_cap)
-	svc := getSvc()
 
 	for true {
 		time.Sleep(time.Duration(scan_frequency) * time.Second)
@@ -118,7 +137,7 @@ func main() {
 		fmt.Println("queue status is block? ", isQueueStuck)
 		if len(agentMap) < vm_cap && isQueueStuck {
 			fmt.Println(" start strigger vm creating")
-			instanceID, err := MakeInstance(svc, jenkins_master, "subnet-c4686fbc", "sg-0891ebcae20b9ea2e", "sg-95d428fc", "hk_region", "ami-02986db8fa9f47e57", "t3.micro")
+			instanceID, err := MakeInstance(jenkins_master, *subnet, *sg1, *sg2, *keyName, *ami, *vmtype)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -138,7 +157,7 @@ func main() {
 				if agentMap[k] > idle_cap {
 					fmt.Println("vm " + k + " is idle too long " + string(v))
 					deregisterAgent(jenkins_master, "jenkins-cli.jar", k)
-					TerminateInstance(svc, k)
+					TerminateInstance(k)
 					delete(agentMap, k)
 				}
 			} else {
