@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-func main() {
-	deregisterAgent("18.163.184.77:80", "jenkins-cli.jar", "i-0743e48f00bf94046")
-}
+// func main() {
+// 	deregisterAgent("18.163.184.77:80", "jenkins-cli.jar", "i-0743e48f00bf94046")
+// }
 
 func deregisterAgent(url, jenkinsCli, agent string) {
 	cmd := exec.Command("java", "-jar", jenkinsCli, "-s", "http://"+url, "delete-node", agent)
@@ -63,6 +63,6 @@ func queryQueue(url string) bool {
 		panic(err)
 	}
 	// fmt.Println(string(body))
-	found := strings.Contains(string(body), `There are no nodes with the label ‘work-node’`)
+	found := strings.Contains(string(body), `‘work-node’`)
 	return found
 }

@@ -51,7 +51,7 @@ func TerminateInstance(instanceId string) {
 
 	fmt.Println(result)
 }
-func MakeInstance(jenkins, subnetId, sg, key, ami, vmtype string) (string, error) {
+func MakeInstance(jenkins, subnetId, sg1, sg2, key, ami, vmtype string) (string, error) {
 	name := flag.String("n", "Name", "The name of the tag to attach to the instance")
 	value := flag.String("v", "JenkinsAgent", "The value of the tag to attach to the instance")
 	flag.Parse()
@@ -59,13 +59,15 @@ func MakeInstance(jenkins, subnetId, sg, key, ami, vmtype string) (string, error
 	svc := getSvc()
 
 	ud := `#!/bin/bash
-	export JENKINS_MASTER=` + jenkins + `nohup /root/command.sh &`
+	export JENKINS_MASTER=` + jenkins + `
+	nohup /root/command.sh &`
 
 	userData := base64.StdEncoding.EncodeToString([]byte(ud))
 
-	sgs := []*string{&sg}
+	sgs := []*string{&sg1, &sg2}
 	// subnet := "subnet-c4686fbc"
 	// snippet-start:[ec2.go.create_instance_with_tag.call]
+
 	result, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:          aws.String(ami),
 		InstanceType:     aws.String(vmtype),
@@ -101,12 +103,23 @@ func MakeInstance(jenkins, subnetId, sg, key, ami, vmtype string) (string, error
 }
 
 func main() {
-	result, err := MakeInstance("18.163.184.77:80", "subnet-c4686fbc", "chris", "hk_region", "ami-02986db8fa9f47e57", "t3.micro")
-	if err != nil {
-		fmt.Println(err.Error())
+	jenkins_master := "18.163.184.77:80"
+	cool_down := 60
+	scan_frequency := 10
+	vm_cap := 2
+
+	isQueueStuck := queryQueue(jenkins_master)
+
+	if isQueueStuck {
+		result, err := MakeInstance(jenkins_master, "subnet-c4686fbc", "sg-0891ebcae20b9ea2e", "sg-95d428fc", "hk_region", "ami-02986db8fa9f47e57", "t3.micro")
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		fmt.Println("vm " + result + " is created")
+		time.Sleep(cool_down * time.Second)
+
 	}
-	time.Sleep(20 * time.Second)
-	TerminateInstance(result)
+	// TerminateInstance(result)
 }
 
 // snippet-end:[ec2.go.create_instance_with_tag]
