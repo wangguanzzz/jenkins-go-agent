@@ -116,7 +116,7 @@ func main() {
 	//"hk_region"
 	keyName := flag.String("key", "", "AWS key name")
 	// "ami-02986db8fa9f47e57"
-	ami := flag.String("ami", "", "AWS key name")
+	ami := flag.String("ami", "", "AMI ID")
 	// "t3.micro"
 	vmtype := flag.String("vmtype", "t3.micro", "AWS vm type")
 
