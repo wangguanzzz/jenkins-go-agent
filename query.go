@@ -63,7 +63,7 @@ func queryQueue(url string, agentMap map[string]int) bool {
 		panic(err)
 	}
 	// fmt.Println(string(body))
-	found := strings.Contains(string(body), `‘work-node’`) | strings.Contains(string(body), "‘i-"")
+	found := strings.Contains(string(body), `‘work-node’`) || strings.Contains(string(body), `‘i-`)
 	for instance, _ := range agentMap {
 		found = found || strings.Contains(string(body), instance)
 	}
